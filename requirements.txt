@@ -1,5 +1,6 @@
 telebot
 psycopg2
+psycopg2-binary
 python-telegram-bot
 gunicorn
 requests
