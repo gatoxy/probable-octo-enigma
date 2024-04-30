@@ -1,6 +1,7 @@
 import telebot
 import os
 import psycopg2
+from io import BytesIO
 
 # Chave da API do Telegram
 CHAVE_API = "7111668089:AAHcJZrbuUnJjuSxwNlx0cED_iiYdtp03Mc"
@@ -44,29 +45,26 @@ def handle_download(message):
     try:
         bot.send_message(message.chat.id, 'Estou baixando o vídeo...')
 
-        # Baixando vídeo pelo link
-        video_url = message.text
-
         # Simulando o download do vídeo
-        video_filename = video_url.split('/')[-1]
-        video_filepath = f'/path/to/your/local/directory/{video_filename}'
-
-        # Lendo o arquivo de vídeo como bytes
-        with open(video_filepath, 'rb') as video_file:
-            video_data = video_file.read()
+        video_url = message.text
+        video_request = requests.get(video_url)
+        video_data = video_request.content
 
         # Conectando ao banco de dados
         connection = connect_to_db()
         cursor = connection.cursor()
 
-        # Inserindo o arquivo no banco de dados
-        cursor.execute("INSERT INTO videos (nome, dados) VALUES (%s, %s)", (video_filename, video_data))
+        # Inserindo os dados do vídeo no banco de dados
+        cursor.execute("INSERT INTO videos (dados) VALUES (%s) RETURNING id", (psycopg2.Binary(video_data),))
+        video_id = cursor.fetchone()[0]
         connection.commit()
 
         bot.send_message(message.chat.id, 'Vídeo baixado com sucesso!')
 
-        # Enviando mensagem de confirmação
-        bot.send_message(message.chat.id, 'O vídeo foi baixado e armazenado com sucesso no banco de dados.')
+        # Enviando o vídeo de volta para o usuário
+        video_file = BytesIO(video_data)
+        video_file.name = 'video.mp4'
+        bot.send_video(message.chat.id, video_file)
 
         # Fechando a conexão com o banco de dados
         cursor.close()
